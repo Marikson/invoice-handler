@@ -1,18 +1,20 @@
 import requests
 import re
 import base64
+import html
 from pathlib import Path
 from typing import Iterable, Iterator
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urljoin, urlparse
 from datetime import datetime, timedelta, timezone
 
 DEFAULT_PAGE_SIZE = 100
 PDF_CONTENT_TYPE = "application/pdf"
 GRAPH_ROOT = "https://graph.microsoft.com/v1.0"
+SZAMLAZZ_ROOT = "https://www.szamlazz.hu"
 BODY_URL_KEYWORDS = ["www.ediarchive.eu", "www.szamlazz.hu"]
 URL_FILTER_PATTERNS = [
     r'https?://(?:[^\s]*\.)?ediarchive\.eu/[^\s]*/downloadurl[^\s]*',
-    r'https?://(?:[^\s]*\.)?szamlazz\.hu/szamla/fiok/[^\s]*',
+    r'https?://(?:[^\s]*\.)?szamlazz\.hu/szamla(?:/fiok/[^\s]*|/\?action=szamlapdf[^\s]*)',
 ]
 
 class GraphError(RuntimeError):
@@ -131,8 +133,7 @@ class MailMethods:
                                         # Extract links from the redirected page content
                                         redirected_links = self.extract_matching_links(response.text)
                                         for pdf_link in redirected_links:
-                                            # Skip if it's the same redirect link
-                                            if pdf_link != link:
+                                            if pdf_link != link and self.is_attachment_download_url(pdf_link):
                                                 try:
                                                     pdf_response = self.session.get(pdf_link, timeout=60)
                                                     if pdf_response.status_code == 200:
@@ -198,9 +199,11 @@ class MailMethods:
             payload = self.graph_get(next_url)
             for message in payload.get("value", []):
                 # Filter by keywords in body content or hasAttachments
-                body_content = (message.get("body", {}).get("content") or "").lower()
-                has_keyword = any(kw.lower() in body_content for kw in BODY_URL_KEYWORDS)
-                if message.get("hasAttachments") or has_keyword:
+                body_content = message.get("body", {}).get("content") or ""
+                lowered_body_content = body_content.lower()
+                has_keyword = any(kw.lower() in lowered_body_content for kw in BODY_URL_KEYWORDS)
+                has_matching_link = bool(self.extract_matching_links(body_content))
+                if message.get("hasAttachments") or has_keyword or has_matching_link:
                     yield message
             next_url = payload.get("@odata.nextLink")
             
@@ -227,17 +230,37 @@ class MailMethods:
     def extract_matching_links(self, body_content: str) -> list[str]:
         """Extract URLs from body content that contain keywords or match specific patterns."""
         url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]*'
-        urls = re.findall(url_pattern, body_content)
-        
+        href_pattern = r'href=["\']([^"\']+)["\']'
+        candidates = re.findall(url_pattern, body_content)
+        candidates.extend(re.findall(href_pattern, body_content, flags=re.IGNORECASE))
 
         matching_urls = []
-        
-        for url in urls:
-            # Check if URL matches any regex pattern
-            if any(re.match(pattern, url) for pattern in URL_FILTER_PATTERNS):
-                matching_urls.append(url)
-        
-        return list(set(matching_urls))  # Remove duplicates
+        seen_urls = set()
+
+        for candidate in candidates:
+            normalized_url = html.unescape(candidate).strip()
+            if normalized_url.startswith("/"):
+                normalized_url = urljoin(SZAMLAZZ_ROOT, normalized_url)
+
+            if normalized_url in seen_urls:
+                continue
+
+            if any(re.match(pattern, normalized_url) for pattern in URL_FILTER_PATTERNS):
+                matching_urls.append(normalized_url)
+                seen_urls.add(normalized_url)
+
+        return matching_urls
+
+
+    def is_attachment_download_url(self, url: str) -> bool:
+        parsed_url = urlparse(url)
+        query = parse_qs(parsed_url.query)
+        return (
+            parsed_url.netloc.endswith("szamlazz.hu")
+            and parsed_url.path == "/szamla/"
+            and query.get("action") == ["szamlapdf"]
+            and query.get("content_disp_type") == ["attachment"]
+        )
     
     
     def sanitize_filename(self, value: str, fallback: str = "untitled") -> str:
