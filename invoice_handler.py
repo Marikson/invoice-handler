@@ -35,6 +35,7 @@ import urllib3.util.connection
 
 from ms_auth import MSAuth
 from mail_methods import MailMethods
+from xls_methods import XLS_FILE_PATH, XlsMethods
 
 
 def force_ipv4_only() -> None:
@@ -54,6 +55,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--client-secret", help="App registration client secret for client credentials")
     parser.add_argument("--scope", action="append", dest="scopes", help="OAuth scope for device flow. Can be repeated. Defaults to Mail.Read.")
     parser.add_argument("--days", type=int, default=7, help="Number of days to look back for emails")
+    parser.add_argument("--download-xls", default=True, action="store_true", help="Download the configured shared Excel file through Microsoft Graph")
+    parser.add_argument("--xls-url", default=XLS_FILE_PATH, help="SharePoint or OneDrive sharing URL for the Excel file")
+    parser.add_argument("--xls-output", default="xls/Nordvik.xlsx", help="Destination path for the downloaded Excel file")
     return parser
 
 
@@ -67,10 +71,19 @@ def main() -> int:
     force_ipv4_only()
 
     auth_instance = MSAuth(args.tenant_id, args.client_id, args.client_secret, args.scopes)
-    mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
+    # mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
+    xls_methods = XlsMethods(auth_instance.session)
+    xls_downloaded = False
+    if args.download_xls:
+      xls_downloaded = xls_methods.download_xls_file(args.xls_output, args.xls_url)
 
-    
-    print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
+    # print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
+    if args.download_xls:
+      xls_output = Path(args.xls_output).expanduser().resolve()
+      if xls_downloaded:
+        print(f"Downloaded Excel file to {xls_output}")
+      else:
+        print("Excel download failed")
     return 0
 
 
