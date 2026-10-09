@@ -15,7 +15,7 @@ pip install -r requirements.txt
 Register a public client app in Microsoft Entra ID, then run:
 
 ```bash
-python download_outlook_pdf_attachments.py --client-id <app-client-id> --account user@company.com
+python invoice_handler.py --client-id <app-client-id> --account user@company.com
 ```
 
 ## App-only sign-in
@@ -23,7 +23,7 @@ python download_outlook_pdf_attachments.py --client-id <app-client-id> --account
 Use a confidential client app with application permissions:
 
 ```bash
-python download_outlook_pdf_attachments.py \
+python invoice_handler.py \
   --tenant-id <tenant-id> \
   --client-id <app-client-id> \
   --client-secret <app-secret> \
@@ -48,7 +48,7 @@ python invoice_handler.py \
   --client-secret <app-secret> \
   --account user@company.com \
   --download-xls \
-  --xls-output attachments/Nordvik.xlsx
+  --xls-output xls/Nordvik.xlsx
 ```
 
 ## Notes
