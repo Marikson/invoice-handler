@@ -36,6 +36,7 @@ import urllib3.util.connection
 from ms_auth import MSAuth
 from mail_methods import MailMethods
 from xls_methods import XLS_FILE_PATH, XlsMethods
+from pdf_parser import PDFParser
 
 
 def force_ipv4_only() -> None:
@@ -84,6 +85,12 @@ def main() -> int:
         print(f"Downloaded Excel file to {xls_output}")
       else:
         print("Excel download failed")
+    
+  
+    pdf_parser = PDFParser(output_dir)
+    processed_pdf = pdf_parser()
+    
+    
     return 0
 
 
