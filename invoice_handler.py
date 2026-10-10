@@ -29,18 +29,27 @@ import argparse
 import socket
 
 from pathlib import Path
-from urllib.parse import quote
 
 import urllib3.util.connection
 
 from ms_auth import MSAuth
 from mail_methods import MailMethods
-from xls_methods import XLS_FILE_PATH, XlsMethods
+from xls_methods import XLS_FILE_NAME, XLS_FILE_PATH, XlsMethods
 from pdf_parser import PDFParser
+
+
+XLS_DATA_START_ROW = 2
+XLS_DATA_COLUMNS = [3, 4, 5, 8]
+XLS_INVOICE_ID_COLUMN = 3
 
 
 def force_ipv4_only() -> None:
     urllib3.util.connection.allowed_gai_family = lambda: socket.AF_INET
+
+
+def default_xls_output_path() -> str:
+    file_name = XLS_FILE_NAME if Path(XLS_FILE_NAME).suffix else f"{XLS_FILE_NAME}.xlsx"
+    return str(Path("xls") / file_name)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,7 +67,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--days", type=int, default=7, help="Number of days to look back for emails")
     parser.add_argument("--download-xls", default=True, action="store_true", help="Download the configured shared Excel file through Microsoft Graph")
     parser.add_argument("--xls-url", default=XLS_FILE_PATH, help="SharePoint or OneDrive sharing URL for the Excel file")
-    parser.add_argument("--xls-output", default="xls/Nordvik.xlsx", help="Destination path for the downloaded Excel file")
+    parser.add_argument("--xls-output", default=default_xls_output_path(), help="Destination path for the downloaded Excel file")
+    parser.add_argument("--xls-sheet", default="Vevői számlák", help="Worksheet name to update in the downloaded Excel file")
+    parser.add_argument("--upload-xls", default=True, action="store_true", help="Upload the edited Excel file back to SharePoint after writing parsed invoice data")
     return parser
 
 
@@ -72,15 +83,15 @@ def main() -> int:
     force_ipv4_only()
 
     auth_instance = MSAuth(args.tenant_id, args.client_id, args.client_secret, args.scopes)
-    # mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
+    mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
     xls_methods = XlsMethods(auth_instance.session)
+    xls_output = Path(args.xls_output).expanduser().resolve()
     xls_downloaded = False
     if args.download_xls:
-      xls_downloaded = xls_methods.download_xls_file(args.xls_output, args.xls_url)
+      xls_downloaded = xls_methods.download_xls_file(str(xls_output), args.xls_url)
 
-    # print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
+    print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
     if args.download_xls:
-      xls_output = Path(args.xls_output).expanduser().resolve()
       if xls_downloaded:
         print(f"Downloaded Excel file to {xls_output}")
       else:
@@ -89,6 +100,44 @@ def main() -> int:
   
     pdf_parser = PDFParser(output_dir)
     invoice_data = pdf_parser()
+
+    if xls_downloaded and invoice_data:
+      next_empty_row = xls_methods.find_next_empty_row(
+        str(xls_output),
+        args.xls_sheet,
+        min_row=XLS_DATA_START_ROW,
+        columns=XLS_DATA_COLUMNS,
+      )
+      new_invoices, duplicate_invoices = xls_methods.filter_new_invoices(
+        str(xls_output),
+        args.xls_sheet,
+        invoice_data,
+        id_column=XLS_INVOICE_ID_COLUMN,
+        min_row=XLS_DATA_START_ROW,
+        next_empty_row=next_empty_row,
+      )
+      if duplicate_invoices:
+        duplicate_ids = ", ".join(str(invoice.invoice_id or "N/A") for invoice in duplicate_invoices)
+        print(f"Skipped {len(duplicate_invoices)} invoice(s) already present in Excel: {duplicate_ids}")
+
+      if not new_invoices:
+        print("No new invoice rows to write into Excel")
+      else:
+        if next_empty_row is None:
+          print("Could not determine where to append invoice rows in Excel!")
+        else:
+          invoice_updates = xls_methods.build_invoice_updates(new_invoices, next_empty_row)
+          if xls_methods.write_to_downloaded_xls(str(xls_output), args.xls_sheet, invoice_updates):
+            print(f"Wrote {len(new_invoices)} invoice row(s) to {args.xls_sheet} in {xls_output} starting at row {next_empty_row}")
+            if args.upload_xls:
+              if xls_methods.upload_xls_file(str(xls_output), args.xls_url):
+                print("Uploaded edited Excel file!")
+              else:
+                print("Excel upload failed! - Make sure xls file is not opened Excel online by a user!")
+          else:
+            print("Excel write failed")
+    elif args.download_xls and not invoice_data:
+      print("No invoice data found to write into Excel!")
     
     
     return 0

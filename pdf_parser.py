@@ -201,7 +201,7 @@ class PDFParser:
             
         }
         casted_amount = float(amount.replace('.', " ").replace(" ", "").replace(',', ".")) if amount else None
-        if currency_map[currency] is "HUF":
+        if currency_map[currency] == "HUF":
             return int(casted_amount)
         else:
             if currency.lower() in currency_map:
@@ -219,7 +219,9 @@ class PDFParser:
 
             lines = [line.strip() for line in content.split("\n") if line.strip()]
             for line in lines:
-                if self._contains_exact_keyword(line, self.DEADLINE_KEYWORDS) and not self._contains_exact_keyword(line, self.EXTRACT_KEYWORDS):
+                contains_keyword, _ = self._contains_exact_keyword(line, self.DEADLINE_KEYWORDS)
+                contains_unwanted_keyword, _ = self._contains_exact_keyword(line, self.EXTRACT_KEYWORDS)
+                if contains_keyword and not contains_unwanted_keyword:
                     match = self.DEADLINE_PATTERN.search(line)
                     if match:
                         return match.group(0)
