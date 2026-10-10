@@ -88,7 +88,7 @@ def main() -> int:
     
   
     pdf_parser = PDFParser(output_dir)
-    processed_pdf = pdf_parser()
+    invoice_data = pdf_parser()
     
     
     return 0
