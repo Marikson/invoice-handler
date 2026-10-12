@@ -25,14 +25,43 @@ class PDFParser:
     VENDOR_KEYWORDS = ["kft", "bt", "zrt", "microsoft", "neda-bau", "fatelep", "centerstahl"]
     EXTRACT_KEYWORDS = ["nordvik", "bankszámlaszám"]
     
-    INVOICE_ID_KEYWORDS = ["számlaszám", "számla sorszám", "sorszám"]
+    INVOICE_ID_KEYWORDS = ["számlaszám", "számla sorszám", "sorszám", "tájékoztatásra"]
     INVOICE_ID_PATTERN = re.compile(r"\b(?=[A-Z0-9./_-]{6,}\b)(?=(?:\D*\d){5,}\D*$)[A-Z0-9./_-]+\b", re.IGNORECASE,)
     
     SUM_TOTAL_KEYWORDS = ["huf", "ft", "forint", "eur", "usd", "gbp"]
+    FINAL_SUM_KEYWORDS = [
+        "számlaösszeg",
+        "bruttó",
+        "brutto",
+        "fizetendő",
+        "fizetendo",
+        "összesen",
+        "osszesen",
+        "végösszeg",
+        "vegosszeg",
+        "payable",
+        "grand total",
+        "total due",
+    ]
+    PARTIAL_SUM_KEYWORDS = [
+        "nettó",
+        "netto",
+        "egységár",
+        "egysegar",
+        "részösszeg",
+        "reszosszeg",
+        "line total",
+        "item total",
+        "subtotal",
+        "sub-total",
+        "áfa",
+        "afa",
+        "vat",
+    ]
     SUM_TOTAL_PATTERN = re.compile(r"\b(?:\d{1,3}(?:[ .,]\d{3})+(?:[.,]\d{2})?|\d{3,9}(?:[.,]\d{2})?)\b")
 
     DEADLINE_KEYWORDS = ["fizetési határidő:", "fizetésihatáridő:", "teljesítési határidő", "lejárat", "esedékesség", "-ig"]
-    DEADLINE_PATTERN = re.compile(r"\b\d{4}[./-]\d{2}[./-]\d{2}\b")
+    DEADLINE_PATTERN = re.compile(r"\d{4}\s*[./-]\s*\d{2}\s*[./-]\s*\d{2}\s*[.]?")
 
     def __init__(self, attachments_folder="attachments"):
         """Initialize the PDF parser with the path to attachments folder."""
@@ -138,6 +167,19 @@ class PDFParser:
                 return True, keyword
         return False, None
 
+    def _is_final_sum_line(self, line):
+        normalized_line = line.casefold()
+
+        has_total_marker, total_keyword = self._contains_exact_keyword(normalized_line, self.FINAL_SUM_KEYWORDS)
+        if not has_total_marker:
+            return False, None
+
+        has_partial_marker, _ = self._contains_exact_keyword(normalized_line, self.PARTIAL_SUM_KEYWORDS)
+        if has_partial_marker:
+            return False, None
+
+        return True, total_keyword
+
 
     def extract_vendor(self, header_content, full_content):
         candidate_sources = [header_content, full_content]
@@ -149,8 +191,27 @@ class PDFParser:
             lines = [line.strip() for line in content.split("\n") if line.strip()]
             for line in lines:
                 lowered_line = line.casefold()
-                if any(suffix in lowered_line for suffix in self.VENDOR_KEYWORDS) and not any(keyword.casefold() in lowered_line for keyword in self.EXTRACT_KEYWORDS):
-                    return " ".join(line.split()[:4])
+                vendor_match = None
+                for vendor_keyword in self.VENDOR_KEYWORDS:
+                    vendor_index = lowered_line.find(vendor_keyword.casefold())
+                    if vendor_index == -1:
+                        continue
+                    if vendor_match is None or vendor_index < vendor_match[0]:
+                        vendor_match = (vendor_index, vendor_keyword)
+
+                if not vendor_match:
+                    continue
+
+                excluded_indices = [lowered_line.find(keyword.casefold()) for keyword in self.EXTRACT_KEYWORDS]
+                excluded_indices = [index for index in excluded_indices if index != -1]
+
+                if excluded_indices:
+                    first_excluded_index = min(excluded_indices)
+                    if first_excluded_index <= vendor_match[0]:
+                        continue
+                    return line[:first_excluded_index].strip(" ,.;:-")
+
+                return line
 
         return None
 
@@ -181,11 +242,17 @@ class PDFParser:
 
             lines = [line.strip() for line in content.split("\n") if line.strip()]
             for line in lines:
-                contains_keyword, keyword = self._contains_exact_keyword(line, self.SUM_TOTAL_KEYWORDS)
-                if contains_keyword:
-                    match = self.SUM_TOTAL_PATTERN.search(line)
-                    if match:
-                        return match.group(0), keyword
+                contains_keyword, currency_keyword = self._contains_exact_keyword(line, self.SUM_TOTAL_KEYWORDS)
+                if not contains_keyword:
+                    continue
+
+                is_final_sum_line, final_keyword = self._is_final_sum_line(line)
+                if not is_final_sum_line:
+                    continue
+
+                matches = self.SUM_TOTAL_PATTERN.findall(line)
+                if matches:
+                    return matches[-1], currency_keyword
 
         return None, None
     
@@ -212,6 +279,7 @@ class PDFParser:
     
     def extract_deadline(self, header_content, full_content):
         candidate_sources = [header_content, full_content]
+        collected_dates = []
 
         for content in candidate_sources:
             if not content:
@@ -219,11 +287,20 @@ class PDFParser:
 
             lines = [line.strip() for line in content.split("\n") if line.strip()]
             for line in lines:
+                date_matches = self.DEADLINE_PATTERN.findall(line)
+                if date_matches:
+                    collected_dates.extend(date_matches)
+
                 contains_keyword, _ = self._contains_exact_keyword(line, self.DEADLINE_KEYWORDS)
                 contains_unwanted_keyword, _ = self._contains_exact_keyword(line, self.EXTRACT_KEYWORDS)
                 if contains_keyword and not contains_unwanted_keyword:
                     match = self.DEADLINE_PATTERN.search(line)
                     if match:
                         return match.group(0)
+
+        if collected_dates:
+            normalized_dates = [date.replace(".", "-").replace("/", "-").replace(" ", "") for date in collected_dates]
+            latest_index = max(range(len(normalized_dates)), key=lambda index: normalized_dates[index])
+            return collected_dates[latest_index]
 
         return None
