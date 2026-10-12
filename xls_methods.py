@@ -13,6 +13,10 @@ class XlsMethods:
     def __init__(self, session):
         self.session = session
 
+    def _apply_cell_format(self, cell, column: int) -> None:
+        if column == 5:
+            cell.number_format = '# ##0 "Ft"'
+
     def _normalize_invoice_id(self, invoice_id: str | None) -> str:
         if not invoice_id:
             return ""
@@ -199,7 +203,9 @@ class XlsMethods:
             for update in updates:
                 
                 if "cell" in update:
-                    worksheet[update["cell"]] = update["value"]
+                    cell = worksheet[update["cell"]]
+                    cell.value = update["value"]
+                    self._apply_cell_format(cell, cell.column)
                     continue
 
                 row = update.get("row")
@@ -207,7 +213,8 @@ class XlsMethods:
                 if row is None or column is None:
                     raise ValueError("Each update must include either 'cell' or both 'row' and 'column'")
 
-                worksheet.cell(row=row, column=column, value=update.get("value"))
+                cell = worksheet.cell(row=row, column=column, value=update.get("value"))
+                self._apply_cell_format(cell, column)
 
             workbook.save(workbook_path)
             return True
