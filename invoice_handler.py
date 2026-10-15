@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import socket
+import shutil
 
 from pathlib import Path
 
@@ -79,6 +80,9 @@ def main() -> int:
         print("Number of days must be at least 1")
         return 1
     output_dir = Path(args.output).expanduser().resolve()
+    if output_dir.exists():
+      print(f"Removing existing output directory of attachments: {output_dir}")
+      shutil.rmtree(output_dir)
 
     force_ipv4_only()
 
@@ -129,13 +133,13 @@ def main() -> int:
           invoice_updates = xls_methods.build_invoice_updates(new_invoices, next_empty_row)
           if xls_methods.write_to_downloaded_xls(str(xls_output), args.xls_sheet, invoice_updates):
             print(f"Wrote {len(new_invoices)} invoice row(s) to {args.xls_sheet} in {xls_output} starting at row {next_empty_row}")
-            # if args.upload_xls:
-              # if xls_methods.upload_xls_file(str(xls_output), args.xls_url):
-              #   print("Uploaded edited Excel file!")
-              # else:
-              #   print("Excel upload failed! - Make sure xls file is not opened Excel online by a user!")
-          # else:
-            # print("Excel write failed")
+            if args.upload_xls:
+              if xls_methods.upload_xls_file(str(xls_output), args.xls_url):
+                print("Uploaded edited Excel file!")
+              else:
+                print("Excel upload failed! - Make sure xls file is not opened Excel online by a user!")
+          else:
+            print("Excel write failed")
     elif args.download_xls and not invoice_data:
       print("No invoice data found to write into Excel!")
     

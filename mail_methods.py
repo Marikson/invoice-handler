@@ -120,7 +120,7 @@ class MailMethods:
                                         destination = self.unique_path(output_dir, stem, ".pdf")
                                         destination.write_bytes(response.content)
                                         saved += 1
-                                        print(f"Saved: {destination}")
+                                        # print(f"Saved: {destination}")
                                 except Exception as e:
                                     print(f"Failed to download from {link}: {e}")
                             
@@ -142,7 +142,7 @@ class MailMethods:
                                                         destination = self.unique_path(output_dir, stem, ".pdf")
                                                         destination.write_bytes(pdf_response.content)
                                                         saved += 1
-                                                        print(f"Saved: {destination}")
+                                                        # print(f"Saved: {destination}")
                                                         break
                                                 except Exception as e:
                                                     print(f"Failed to download from redirected link {pdf_link}: {e}")
@@ -178,7 +178,7 @@ class MailMethods:
                             continue
 
                     saved += 1
-                    print(f"Saved: {destination}")
+                    # print(f"Saved: {destination}")
 
         return saved
     
