@@ -188,15 +188,29 @@ class PDFParser:
                 
                 amount_in_huf = self.currency_converter(currency, sum_total) if sum_total else None
                 
-                self.pdf_data.append(InvoiceData(
+                self.append_to_pdf_data(
                     filename=pdf_file,
                     vendor=vendor,
                     invoice_id=invoice_id,
                     amount=amount_in_huf,
                     deadline=DateTime(deadline) if deadline else None
-                ))
+                )
         
         return self.pdf_data
+    
+    
+    def append_to_pdf_data(self, filename, vendor, invoice_id, amount, deadline):
+        for pdf_data_entry in self.pdf_data:
+            if pdf_data_entry.invoice_id == invoice_id:
+                return
+
+        self.pdf_data.append(InvoiceData(
+            filename=filename,
+            vendor=vendor,
+            invoice_id=invoice_id,
+            amount=amount,
+            deadline=deadline
+        ))
     
     def get_parsed_data(self):
         """Return the parsed PDF data."""
