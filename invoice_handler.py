@@ -83,14 +83,14 @@ def main() -> int:
     force_ipv4_only()
 
     auth_instance = MSAuth(args.tenant_id, args.client_id, args.client_secret, args.scopes)
-    mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
+    # mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
     xls_methods = XlsMethods(auth_instance.session)
     xls_output = Path(args.xls_output).expanduser().resolve()
     xls_downloaded = False
     if args.download_xls:
       xls_downloaded = xls_methods.download_xls_file(str(xls_output), args.xls_url)
 
-    print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
+    # print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
     if args.download_xls:
       if xls_downloaded:
         print(f"Downloaded Excel file to {xls_output}")

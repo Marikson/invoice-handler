@@ -1,8 +1,11 @@
 import os
 import importlib
 import re
+from text_normalizer import TextNormalizer as TN
+from wigo_invoice_parser import WigoInvoiceParser
 from currency_converter import CurrencyConverter
 from xmlrpc.client import DateTime
+
 
 try:
     pdfplumber = importlib.import_module("pdfplumber")
@@ -24,6 +27,8 @@ class InvoiceData:
 class PDFParser:
     VENDOR_KEYWORDS = ["kft", "bt", "zrt", "microsoft", "neda-bau", "fatelep", "centerstahl"]
     EXTRACT_KEYWORDS = ["nordvik", "bankszámlaszám"]
+    TABLE_INVOICE_ID_KEYWORDS = ["számla sorszám", "számlaszám", "invoice number", "szamla sorszam"]
+    TABLE_DEADLINE_KEYWORDS = ["fizetési", "fizetesi", "esedékesség", "esedekesseg", "due date"]
     
     INVOICE_ID_KEYWORDS = ["számlaszám", "számla sorszám", "sorszám", "tájékoztatásra"]
     INVOICE_ID_PATTERN = re.compile(r"\b(?=[A-Z0-9./_-]{6,}\b)(?=(?:\D*\d){5,}\D*$)[A-Z0-9./_-]+\b", re.IGNORECASE,)
@@ -67,6 +72,7 @@ class PDFParser:
         """Initialize the PDF parser with the path to attachments folder."""
         self.attachments_folder = attachments_folder
         self.pdf_data : list[InvoiceData] = []
+        self.normalizer = TN()
         
     def __call__(self):
         return self.parse_all_pdfs()
@@ -88,7 +94,7 @@ class PDFParser:
             text_parts = []
             with pdfplumber.open(filepath) as pdf:
                 for page in pdf.pages:
-                    page_text = page.extract_text() or ""
+                    page_text = self.normalizer._normalize_extracted_text(page.extract_text() or "")
                     if page_text:
                         text_parts.append(page_text)
             text = "\n".join(text_parts)
@@ -96,6 +102,40 @@ class PDFParser:
         except Exception as e:
             print(f"Error parsing {filename}: {str(e)}")
             return None
+
+    def build_pdf_context(self, filename):
+        filepath = os.path.join(self.attachments_folder, filename)
+        context = {
+            "full_text": "",
+            "header_text": "",
+            "lower_third_text": "",
+            "tables": [],
+        }
+
+        try:
+            text_parts = []
+            with pdfplumber.open(filepath) as pdf:
+                for index, page in enumerate(pdf.pages):
+                    page_text = self.normalizer._normalize_extracted_text(page.extract_text() or "")
+                    if page_text:
+                        text_parts.append(page_text)
+
+                    page_tables = page.extract_tables() or []
+                    context["tables"].extend(self.normalizer._normalize_table(table) for table in page_tables)
+
+                    if index == 0:
+                        header_region = page.crop((0, 0, page.width, 120))
+                        context["header_text"] = self.normalizer._normalize_extracted_text(header_region.extract_text() or "")
+
+                        lower_third_top = page.height * (2 / 3)
+                        lower_third_region = page.crop((0, lower_third_top, page.width, page.height))
+                        context["lower_third_text"] = self.normalizer._normalize_extracted_text(lower_third_region.extract_text() or "")
+
+            context["full_text"] = "\n".join(text_parts)
+            return context
+        except Exception as e:
+            print(f"Error building context for {filename}: {str(e)}")
+            return context
 
     def extract_header_text(self, filename, header_height=120):
         filepath = os.path.join(self.attachments_folder, filename)
@@ -106,7 +146,7 @@ class PDFParser:
 
                 first_page = pdf.pages[0]
                 header_region = first_page.crop((0, 0, first_page.width, header_height))
-                return header_region.extract_text() or ""
+                return self.normalizer._normalize_extracted_text(header_region.extract_text() or "")
         except Exception as e:
             print(f"Error extracting header from {filename}: {str(e)}")
             return ""
@@ -123,7 +163,7 @@ class PDFParser:
                 lower_third_region = first_page.crop(
                     (0, lower_third_top, first_page.width, first_page.height)
                 )
-                return lower_third_region.extract_text() or ""
+                return self.normalizer._normalize_extracted_text(lower_third_region.extract_text() or "")
         except Exception as e:
             print(f"Error extracting lower third from {filename}: {str(e)}")
             return ""
@@ -133,15 +173,18 @@ class PDFParser:
         pdf_files = self.get_pdf_files()
         
         for pdf_file in pdf_files:
-            full_content = self.parse_pdf(pdf_file)
-            header_content = self.extract_header_text(pdf_file)
-            lower_third_content = self.extract_lower_third_text(pdf_file)
+            context = self.build_pdf_context(pdf_file)
+            full_content = context["full_text"]
+            header_content = context["header_text"]
+            lower_third_content = context["lower_third_text"]
             if full_content:
                 vendor = self.extract_vendor(header_content, full_content)
-                invoice_id = self.extract_invoice_id(header_content, full_content)
-                sum_total, currency = self.extract_sum_total(lower_third_content, full_content)
-                deadline = self.extract_deadline(header_content, full_content)
-                
+                vendor_specific_fields = self._extract_vendor_specific_fields(vendor, context)
+                    
+                invoice_id = vendor_specific_fields.get("invoice_id") or self.extract_invoice_id(header_content, full_content)
+                sum_total, currency = vendor_specific_fields.get("sum_total"), vendor_specific_fields.get("currency") \
+                    or self.extract_sum_total(lower_third_content, full_content)
+                deadline = vendor_specific_fields.get("deadline") or self.extract_deadline(header_content, full_content)
                 
                 amount_in_huf = self.currency_converter(currency, sum_total) if sum_total else None
                 
@@ -158,6 +201,16 @@ class PDFParser:
     def get_parsed_data(self):
         """Return the parsed PDF data."""
         return self.pdf_data
+
+    def _extract_vendor_specific_fields(self, vendor, context):
+        if not vendor or not context:
+            return {}
+
+        normalized_vendor = vendor.casefold()
+        if "nelson flottalízing" in normalized_vendor:
+            return WigoInvoiceParser(context)()
+
+        return {}
 
     def _contains_exact_keyword(self, line, keywords):
         normalized_line = line.casefold()
