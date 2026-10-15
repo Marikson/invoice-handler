@@ -33,7 +33,7 @@ class PDFParser:
     INVOICE_ID_KEYWORDS = ["számlaszám", "számla sorszám", "sorszám", "tájékoztatásra"]
     INVOICE_ID_PATTERN = re.compile(r"\b(?=[A-Z0-9./_-]{6,}\b)(?=(?:\D*\d){5,}\D*$)[A-Z0-9./_-]+\b", re.IGNORECASE,)
     
-    SUM_TOTAL_KEYWORDS = ["huf", "ft", "forint", "eur", "usd", "gbp"]
+    CURRENCY_KEYWORDS = ["huf", "ft", "forint", "eur", "usd", "gbp"]
     FINAL_SUM_KEYWORDS = [
         "számlaösszeg",
         "bruttó",
@@ -182,8 +182,13 @@ class PDFParser:
                 vendor_specific_fields = self._extract_vendor_specific_fields(vendor, context)
                     
                 invoice_id = vendor_specific_fields.get("invoice_id") or self.extract_invoice_id(header_content, full_content)
-                sum_total, currency = vendor_specific_fields.get("sum_total"), vendor_specific_fields.get("currency") \
-                    or self.extract_sum_total(lower_third_content, full_content)
+                vendor_sum_total = vendor_specific_fields.get("sum_total")
+                vendor_currency = vendor_specific_fields.get("currency")
+
+                if vendor_sum_total and vendor_currency:
+                    sum_total, currency = vendor_sum_total, vendor_currency
+                else:
+                    sum_total, currency = self.extract_sum_total(lower_third_content, full_content)
                 deadline = vendor_specific_fields.get("deadline") or self.extract_deadline(header_content, full_content)
                 
                 amount_in_huf = self.currency_converter(currency, sum_total) if sum_total else None
@@ -309,8 +314,8 @@ class PDFParser:
 
             lines = [line.strip() for line in content.split("\n") if line.strip()]
             for line in lines:
-                contains_keyword, currency_keyword = self._contains_exact_keyword(line, self.SUM_TOTAL_KEYWORDS)
-                if not contains_keyword:
+                contains_currency_keyword, currency_keyword = self._contains_exact_keyword(line, self.CURRENCY_KEYWORDS)
+                if not contains_currency_keyword:
                     continue
 
                 is_final_sum_line, final_keyword = self._is_final_sum_line(line)

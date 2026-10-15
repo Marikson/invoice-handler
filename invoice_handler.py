@@ -83,14 +83,14 @@ def main() -> int:
     force_ipv4_only()
 
     auth_instance = MSAuth(args.tenant_id, args.client_id, args.client_secret, args.scopes)
-    # mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
+    mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
     xls_methods = XlsMethods(auth_instance.session)
     xls_output = Path(args.xls_output).expanduser().resolve()
     xls_downloaded = False
     if args.download_xls:
       xls_downloaded = xls_methods.download_xls_file(str(xls_output), args.xls_url)
 
-    # print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
+    print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
     if args.download_xls:
       if xls_downloaded:
         print(f"Downloaded Excel file to {xls_output}")
@@ -129,13 +129,13 @@ def main() -> int:
           invoice_updates = xls_methods.build_invoice_updates(new_invoices, next_empty_row)
           if xls_methods.write_to_downloaded_xls(str(xls_output), args.xls_sheet, invoice_updates):
             print(f"Wrote {len(new_invoices)} invoice row(s) to {args.xls_sheet} in {xls_output} starting at row {next_empty_row}")
-            if args.upload_xls:
-              if xls_methods.upload_xls_file(str(xls_output), args.xls_url):
-                print("Uploaded edited Excel file!")
-              else:
-                print("Excel upload failed! - Make sure xls file is not opened Excel online by a user!")
-          else:
-            print("Excel write failed")
+            # if args.upload_xls:
+              # if xls_methods.upload_xls_file(str(xls_output), args.xls_url):
+              #   print("Uploaded edited Excel file!")
+              # else:
+              #   print("Excel upload failed! - Make sure xls file is not opened Excel online by a user!")
+          # else:
+            # print("Excel write failed")
     elif args.download_xls and not invoice_data:
       print("No invoice data found to write into Excel!")
     
