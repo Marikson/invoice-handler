@@ -1,4 +1,5 @@
 import base64
+from copy import copy
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -16,6 +17,11 @@ class XlsMethods:
     def _apply_cell_format(self, cell, column: int) -> None:
         if column == 5:
             cell.number_format = '# ##0 "Ft"'
+
+        if column == 8:
+            alignment = copy(cell.alignment)
+            alignment.horizontal = "right"
+            cell.alignment = alignment
 
     def _normalize_invoice_id(self, invoice_id: str | None) -> str:
         if not invoice_id:

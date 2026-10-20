@@ -1,6 +1,7 @@
 import os
 import importlib
 import re
+from datetime import datetime
 from text_normalizer import TextNormalizer as TN
 from wigo_invoice_parser import WigoInvoiceParser
 from currency_converter import CurrencyConverter
@@ -66,7 +67,17 @@ class PDFParser:
     SUM_TOTAL_PATTERN = re.compile(r"\b(?:\d{1,3}(?:[ .,]\d{3})+(?:[.,]\d{2})?|\d{3,9}(?:[.,]\d{2})?)\b")
 
     DEADLINE_KEYWORDS = ["fizetési határidő:", "fizetésihatáridő:", "teljesítési határidő", "lejárat", "esedékesség", "-ig"]
-    DEADLINE_PATTERN = re.compile(r"\d{4}\s*[./-]\s*\d{2}\s*[./-]\s*\d{2}\s*[.]?")
+    DEADLINE_PATTERN = re.compile(
+        r"\b(?:\d{4}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2}|\d{1,2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{4})\b[.]?"
+    )
+    DEADLINE_DATE_FORMATS = (
+        "%Y-%m-%d",
+        "%Y.%m.%d",
+        "%Y/%m/%d",
+        "%d-%m-%Y",
+        "%d.%m.%Y",
+        "%d/%m/%Y",
+    )
 
     def __init__(self, attachments_folder="attachments"):
         """Initialize the PDF parser with the path to attachments folder."""
@@ -198,7 +209,7 @@ class PDFParser:
                     vendor=vendor,
                     invoice_id=invoice_id,
                     amount=amount_in_huf,
-                    deadline=DateTime(deadline) if deadline else None
+                    deadline=self._normalize_deadline_date(deadline) if deadline else None
                 )
         
         return self.pdf_data
@@ -372,7 +383,8 @@ class PDFParser:
             for line in lines:
                 date_matches = self.DEADLINE_PATTERN.findall(line)
                 if date_matches:
-                    collected_dates.extend(date_matches)
+                    for date_match in date_matches:
+                        collected_dates.append(date_match)
 
                 contains_keyword, _ = self._contains_exact_keyword(line, self.DEADLINE_KEYWORDS)
                 contains_unwanted_keyword, _ = self._contains_exact_keyword(line, self.EXTRACT_KEYWORDS)
@@ -380,10 +392,22 @@ class PDFParser:
                     match = self.DEADLINE_PATTERN.search(line)
                     if match:
                         return match.group(0)
+                        
 
         if collected_dates:
-            normalized_dates = [date.replace(".", "-").replace("/", "-").replace(" ", "") for date in collected_dates]
-            latest_index = max(range(len(normalized_dates)), key=lambda index: normalized_dates[index])
-            return collected_dates[latest_index]
+            return max(collected_dates)
+
+        return None
+
+    def _normalize_deadline_date(self, raw_date):
+        date_candidate = raw_date.strip().rstrip(".")
+        date_candidate = re.sub(r"\s+", "", date_candidate)
+
+        for date_format in self.DEADLINE_DATE_FORMATS:
+            try:
+                parsed_date = datetime.strptime(date_candidate, date_format)
+                return DateTime(parsed_date.strftime("%Y-%m-%d"))
+            except ValueError:
+                continue
 
         return None
