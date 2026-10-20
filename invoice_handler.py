@@ -71,14 +71,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--xls-url", default=XLS_FILE_PATH, help="SharePoint or OneDrive sharing URL for the Excel file")
     parser.add_argument("--xls-output", default=default_xls_output_path(), help="Destination path for the downloaded Excel file")
     parser.add_argument("--xls-sheet", default="Vevői számlák", help="Worksheet name to update in the downloaded Excel file")
-    parser.add_argument("--upload-xls", default=True, action="store_true", help="Upload the edited Excel file back to SharePoint after writing parsed invoice data")
+    parser.add_argument("--local-xls", default=False, action="store_true", help="Do not upload the edited Excel file back to SharePoint after writing parsed invoice data")
     parser.add_argument("--version", action="version", version=f"invoice-handler {__version__}")
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
-    print(f"invoice-handler {__version__}")
+    print("\n" + "-" * 40 + f"invoice-handler {__version__}" + "-" * 40 + "\n")
 
     if args.days < 1:
         print("Number of days must be at least 1")
@@ -138,7 +138,7 @@ def main() -> int:
           invoice_updates = xls_methods.build_invoice_updates(new_invoices, next_empty_row)
           if xls_methods.write_to_downloaded_xls(str(xls_output), args.xls_sheet, invoice_updates):
             print(f"Wrote {len(new_invoices)} invoice row(s) to {args.xls_sheet} in {xls_output} starting at row {next_empty_row}")
-            if args.upload_xls:
+            if not args.local_xls:
               if xls_methods.upload_xls_file(str(xls_output), args.xls_url):
                 print("Uploaded edited Excel file!")
               else:

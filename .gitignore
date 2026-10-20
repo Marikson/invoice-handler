@@ -1,5 +1,8 @@
 .vscode/
 .ve/
+.venv/
 attachments/
 __pycache__/
 xls/
+build/
+*.egg-info/

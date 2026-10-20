@@ -84,7 +84,7 @@ python invoice_handler.py \
 - `--xls-url` override the default SharePoint sharing URL for the Excel file
 - `--xls-output` set the destination path for the downloaded Excel file
 - `--xls-sheet` worksheet name to update (default: `Vevői számlák`)
-- `--upload-xls` upload the edited Excel file after writing (currently enabled by default)
+- `--local-xls` skip upload and keep the edited Excel file only on local disk
 
 Authentication options:
 
@@ -106,6 +106,17 @@ python invoice_handler.py \
   --folder "Inbox/Invoices" \
   --xls-output xls/Nordvik.xlsx \
   --xls-sheet "Vevői számlák"
+```
+
+Keep the edited Excel file local only (skip upload back to SharePoint/OneDrive):
+
+```bash
+python invoice_handler.py \
+  --tenant-id <tenant-id> \
+  --client-id <app-client-id> \
+  --client-secret <app-secret> \
+  --account user@company.com \
+  --local-xls
 ```
 
 ## Notes
