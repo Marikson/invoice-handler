@@ -85,7 +85,7 @@ def main() -> int:
       shutil.rmtree(output_dir)
 
     force_ipv4_only()
-
+    print("\n" + "-" * 40 + "Downloading Attachments and Excel file" + "-" * 40 + "\n")
     auth_instance = MSAuth(args.tenant_id, args.client_id, args.client_secret, args.scopes)
     mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.output)
     xls_methods = XlsMethods(auth_instance.session)
@@ -101,11 +101,12 @@ def main() -> int:
       else:
         print("Excel download failed")
     
-  
+    print("\n" + "-" * 40 + "Parsing PDF attachments" + "-" * 40 + "\n")
     pdf_parser = PDFParser(output_dir)
     invoice_data = pdf_parser()
 
     if xls_downloaded and invoice_data:
+      print("\n" + "-" * 40 + "Updating Excel with parsed invoice data" + "-" * 40 + "\n")
       next_empty_row = xls_methods.find_next_empty_row(
         str(xls_output),
         args.xls_sheet,
