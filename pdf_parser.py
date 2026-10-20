@@ -313,12 +313,16 @@ class PDFParser:
                 continue
 
             lines = [line.strip() for line in content.split("\n") if line.strip()]
-            for line in lines:
+            for index, line in enumerate(lines):
                 contains_currency_keyword, currency_keyword = self._contains_exact_keyword(line, self.CURRENCY_KEYWORDS)
                 if not contains_currency_keyword:
                     continue
 
-                is_final_sum_line, final_keyword = self._is_final_sum_line(line)
+                is_final_sum_line, _ = self._is_final_sum_line(line)
+                if not is_final_sum_line and index > 0:
+                    previous_line = lines[index - 1]
+                    is_final_sum_line, _ = self._is_final_sum_line(previous_line)
+
                 if not is_final_sum_line:
                     continue
 
