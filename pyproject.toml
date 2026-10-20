@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invoice-handler"
+dynamic = ["version"]
+description = "Download Outlook PDF attachments, parse invoice data, and update/upload a shared Excel sheet."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pdfplumber>=0.11.0",
+  "requests>=2.31.0",
+  "CurrencyConverter>=0.17.4",
+  "openpyxl>=3.1.5",
+]
+
+[project.scripts]
+invoice-handler = "invoice_handler:main"
+
+[tool.setuptools]
+py-modules = [
+  "invoice_handler",
+  "mail_methods",
+  "ms_auth",
+  "pdf_parser",
+  "text_normalizer",
+  "wigo_invoice_parser",
+  "xls_methods",
+  "version",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "version.__version__"}

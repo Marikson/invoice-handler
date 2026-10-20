@@ -37,6 +37,7 @@ from ms_auth import MSAuth
 from mail_methods import MailMethods
 from xls_methods import XLS_FILE_NAME, XLS_FILE_PATH, XlsMethods
 from pdf_parser import PDFParser
+from version import __version__
 
 
 XLS_DATA_START_ROW = 2
@@ -71,11 +72,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--xls-output", default=default_xls_output_path(), help="Destination path for the downloaded Excel file")
     parser.add_argument("--xls-sheet", default="Vevői számlák", help="Worksheet name to update in the downloaded Excel file")
     parser.add_argument("--upload-xls", default=True, action="store_true", help="Upload the edited Excel file back to SharePoint after writing parsed invoice data")
+    parser.add_argument("--version", action="version", version=f"invoice-handler {__version__}")
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
+    print(f"invoice-handler {__version__}")
+
     if args.days < 1:
         print("Number of days must be at least 1")
         return 1
