@@ -216,12 +216,21 @@ class PDFParser:
     
     
     def append_to_pdf_data(self, filename, vendor, invoice_id, amount, deadline):
-        if not bool(invoice_id or amount):
-            print(f"Skipping invoice with no ID and no amount in file: {filename}")
+        missing_fields = sum(
+            [
+                not bool(vendor),
+                not bool(invoice_id),
+                amount is None,
+            ]
+        )
+        if missing_fields >= 2:
+            print(
+                f"Skipping attachment likely not an invoice: {filename}"
+            )
             return
         
         for pdf_data_entry in self.pdf_data:
-            if pdf_data_entry.invoice_id == invoice_id:
+            if invoice_id and pdf_data_entry.invoice_id == invoice_id:
                 print(f"Duplicate invoice ID found: {invoice_id}, in file: {pdf_data_entry.filename} and {filename}")
                 return
 
