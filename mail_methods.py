@@ -215,9 +215,9 @@ class MailMethods:
 
     def parse_received_time(self, value: str | None) -> str:
         if not value:
-            return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            return datetime.now(timezone.utc).strftime("%Y%m%d")
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.astimezone(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        return dt.astimezone(timezone.utc).strftime("%Y%m%d")
 
 
     def decode_file_attachment(self, attachment: dict) -> bytes:

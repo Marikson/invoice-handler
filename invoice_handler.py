@@ -84,21 +84,21 @@ def main() -> int:
         print("Number of days must be at least 1")
         return 1
     output_dir = Path(args.destination).expanduser().resolve()
-    # if output_dir.exists():
-    #   print(f"Removing existing output directory of attachments: {output_dir}")
-    #   shutil.rmtree(output_dir)
+    if output_dir.exists():
+      print(f"Removing existing output directory of attachments: {output_dir}")
+      shutil.rmtree(output_dir)
 
     force_ipv4_only()
     print("\n" + "-" * 40 + "Downloading Attachments and Excel file" + "-" * 40 + "\n")
     auth_instance = MSAuth(args.tenant_id, args.client_id, args.client_secret, args.scopes)
-    # mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.destination)
+    mail_methods = MailMethods(auth_instance.session, args.account, args.folder, args.days, args.recursive, args.destination)
     xls_methods = XlsMethods(auth_instance.session)
     xls_output = Path(args.xls_output).expanduser().resolve()
     xls_downloaded = False
     if not args.no_download_xls:
       xls_downloaded = xls_methods.download_xls_file(str(xls_output), args.xls_url)
 
-    # print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
+    print(f"Done. Saved {mail_methods.saved_attachments} PDF attachment(s) to {output_dir}")
     if not args.no_download_xls:
       if xls_downloaded:
         print(f"Downloaded Excel file to {xls_output}")
