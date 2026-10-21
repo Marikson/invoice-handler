@@ -77,14 +77,14 @@ python invoice_handler.py \
 ## Options
 
 - `--folder` mail folder path such as `Inbox` or `Inbox/Invoices`
-- `--output` destination directory for saved PDFs
+- `--destination` destination directory for saved PDFs
 - `--recursive` include subfolders
 - `--days` number of days to look back for emails (default: `7`)
-- `--download-xls` download the configured shared Excel file through Microsoft Graph (currently enabled by default)
+- `--no-download-xls` skip downloading the shared Excel file through Microsoft Graph
 - `--xls-url` override the default SharePoint sharing URL for the Excel file
 - `--xls-output` set the destination path for the downloaded Excel file
 - `--xls-sheet` worksheet name to update (default: `Vevői számlák`)
-- `--local-xls` skip upload and keep the edited Excel file only on local disk
+- `--no-upload-xls` skip uploading the edited Excel file back to SharePoint/OneDrive
 
 Authentication options:
 
@@ -104,6 +104,7 @@ python invoice_handler.py \
   --account user@company.com \
   --days 27 \
   --folder "Inbox/Invoices" \
+  --destination attachments \
   --xls-output xls/Nordvik.xlsx \
   --xls-sheet "Vevői számlák"
 ```
@@ -116,7 +117,19 @@ python invoice_handler.py \
   --client-id <app-client-id> \
   --client-secret <app-secret> \
   --account user@company.com \
-  --local-xls
+  --no-upload-xls
+```
+
+Skip all Excel operations (no download and no upload):
+
+```bash
+python invoice_handler.py \
+  --tenant-id <tenant-id> \
+  --client-id <app-client-id> \
+  --client-secret <app-secret> \
+  --account user@company.com \
+  --no-download-xls \
+  --no-upload-xls
 ```
 
 ## Notes
