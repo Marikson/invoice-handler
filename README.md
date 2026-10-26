@@ -139,4 +139,4 @@ python invoice_handler.py \
 - For app-only access, the app needs the appropriate Microsoft Graph mail permissions.
 - Downloading the shared Excel file also requires Graph permissions that can read SharePoint or OneDrive files, such as `Files.Read.All` or `Sites.Read.All`.
 - If the output attachment folder already exists, it is removed before downloading fresh attachments.
-- Parsed rows with neither invoice id nor final amount are skipped.
+- Parsed rows are skipped when at least two of these are missing: vendor, invoice id, final amount.
