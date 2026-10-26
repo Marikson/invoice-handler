@@ -26,7 +26,8 @@ class InvoiceData:
 
 
 class PDFParser:
-    VENDOR_KEYWORDS = ["kft", "bt", "zrt", "microsoft", "neda-bau", "fatelep", "centerstahl"]
+    GENARAL_VENDOR_KEYWORDS = ["kft", "bt", "zrt", "gmbh"]
+    SPECIFIC_VENDOR_KEYWORDS = ["microsoft", "neda-bau", "fatelep", "centerstahl"]
     EXTRACT_KEYWORDS = ["nordvik", "bankszámlaszám"]
     TABLE_INVOICE_ID_KEYWORDS = ["számla sorszám", "számlaszám", "invoice number", "szamla sorszam"]
     TABLE_DEADLINE_KEYWORDS = ["fizetési", "fizetesi", "esedékesség", "esedekesseg", "due date"]
@@ -288,10 +289,12 @@ class PDFParser:
                 continue
 
             lines = [line.strip() for line in content.split("\n") if line.strip()]
+
+            # First pass: keep existing behavior for general legal-form keywords.
             for line in lines:
                 lowered_line = line.casefold()
                 vendor_match = None
-                for vendor_keyword in self.VENDOR_KEYWORDS:
+                for vendor_keyword in self.GENARAL_VENDOR_KEYWORDS:
                     vendor_index = lowered_line.find(vendor_keyword.casefold())
                     if vendor_index == -1:
                         continue
@@ -310,7 +313,14 @@ class PDFParser:
                         continue
                     return line[:first_excluded_index].strip(" ,.;:-")
 
-                return line
+                return line[:vendor_match[0]].strip(" ,.;:-")
+
+            # Second pass: specific vendors return the full matched line.
+            for line in lines:
+                lowered_line = line.casefold()
+                if any(keyword.casefold() in lowered_line for keyword in self.SPECIFIC_VENDOR_KEYWORDS):
+                    cleaned_line = line.strip(" ,.;:-")
+                    return " ".join(cleaned_line.split()[:3])
 
         return None
 

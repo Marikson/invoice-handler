@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--client-secret", help="App registration client secret for client credentials")
     parser.add_argument("--scope", action="append", dest="scopes", help="OAuth scope for device flow. Can be repeated. Defaults to Mail.Read.")
     parser.add_argument("--days", type=int, default=7, help="Number of days to look back for emails")
-    parser.add_argument("--no-download-xls", default=True, action="store_true", help="Do not download the configured shared Excel file through Microsoft Graph")
+    parser.add_argument("--no-download-xls", default=False, action="store_true", help="Do not download the configured shared Excel file through Microsoft Graph")
     parser.add_argument("--xls-url", default=XLS_FILE_PATH, help="SharePoint or OneDrive sharing URL for the Excel file")
     parser.add_argument("--xls-output", default=default_xls_output_path(), help="Destination path for the downloaded Excel file")
     parser.add_argument("--xls-sheet", default="Vevői számlák", help="Worksheet name to update in the downloaded Excel file")
